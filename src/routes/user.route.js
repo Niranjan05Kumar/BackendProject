@@ -1,9 +1,15 @@
 import { Router } from "express";
 const router = Router();
-import { userRegistor, userLogin } from "../controllers/user.controller.js";
-import { upload } from "../middlewares/multer.middleware.js";
 
-router.route("/registor").post(
+import {
+    userRegister,
+    userLogin,
+    userLogout,
+} from "../controllers/user.controller.js";
+import { upload } from "../middlewares/multer.middleware.js";
+import { varifyJWT } from "../middlewares/auth.middleware.js";
+
+router.route("/register").post(
     upload.fields([
         {
             name: "avatar",
@@ -14,9 +20,11 @@ router.route("/registor").post(
             maxCount: 1,
         },
     ]),
-    userRegistor
+    userRegister
 );
 
 router.route("/login").post(userLogin);
+
+router.route("/login").post(varifyJWT, userLogout);
 
 export default router;

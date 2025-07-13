@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponce } from "../utils/apiResponce.js";
 
-const userRegistor = asyncHandler(async (req, res, next) => {
+const userRegister = asyncHandler(async (req, res, next) => {
     const { username, email, fullname, password } = req.body;
 
     if (
@@ -62,7 +62,7 @@ const userRegistor = asyncHandler(async (req, res, next) => {
 });
 
 const userLogin = asyncHandler(async (req, res, next) => {
-    const { username, password, email, } = req.body;
+    const { username, password, email } = req.body;
 
     if (!email && !username) {
         throw new ApiError(400, "Email or username is required");
@@ -113,4 +113,27 @@ const userLogin = asyncHandler(async (req, res, next) => {
         );
 });
 
-export { userRegistor, userLogin };
+const userLogout = asyncHandler(async (req, res) => {
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            refreshToken: undefined,
+        },
+        {
+            new: true,
+        }
+    );
+
+    const options = {
+        httpOnly: true,
+        secure: true,
+    };
+
+    return res
+        .status(200)
+        .clearCookie(accessToken, options)
+        .clearCookie(refreshToken, options)
+        .json(new apiResponce(200, {}, "User logged out"));
+});
+
+export { userRegister, userLogin, userLogout };
