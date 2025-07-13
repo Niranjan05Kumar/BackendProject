@@ -25,7 +25,7 @@ const userRegistor = asyncHandler(async (req, res, next) => {
 
     const avatarLocalPath = req.files?.avatar[0]?.path;
     const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
-    
+
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar file is required");
     }
@@ -46,16 +46,71 @@ const userRegistor = asyncHandler(async (req, res, next) => {
         coverImage: coverImage?.secure_url || "",
     });
 
-    const createdUser = await User.findById(user._id).select("-password -refreshToken");
+    const createdUser = await User.findById(user._id).select(
+        "-password -refreshToken"
+    );
 
     if (!createdUser) {
         throw new ApiError(500, "User creation failed");
     }
 
-    return res.status(201).json(
-        new ApiResponce(201, createdUser, "User registered successfully!")
-    );
-
+    return res
+        .status(201)
+        .json(
+            new ApiResponce(201, createdUser, "User registered successfully!")
+        );
 });
 
-export { userRegistor };
+const userLogin = asyncHandler(async (req, res, next) => {
+    const { username, password, email, } = req.body;
+
+    if (!email && !username) {
+        throw new ApiError(400, "Email or username is required");
+    }
+
+    if (!password) {
+        throw new ApiError(400, "Password is required");
+    }
+
+    const user = await User.findOne({
+        $or: [{ email }, { username }],
+    });
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
+    if (!isPasswordValid) {
+        throw new ApiError(400, "Invalid user credentials");
+    }
+
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    const userData = await User.findById(user._id).select(
+        "-password -refreshToken"
+    );
+
+    const options = {
+        httpOnly: true,
+        secure: true,
+    };
+
+    return res
+        .status(200)
+        .cookie("refreshToken", refreshToken, options)
+        .cookie("accessToken", accessToken, options)
+        .json(
+            new ApiResponce(
+                200,
+                { user: userData, accessToken, refreshToken },
+                "User logged in successfully!"
+            )
+        );
+});
+
+export { userRegistor, userLogin };
