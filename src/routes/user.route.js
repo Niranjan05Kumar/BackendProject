@@ -7,7 +7,7 @@ import {
     userLogout,
 } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
-import { varifyJWT } from "../middlewares/auth.middleware.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 router.route("/register").post(
     upload.fields([
@@ -25,6 +25,6 @@ router.route("/register").post(
 
 router.route("/login").post(userLogin);
 
-router.route("/login").post(varifyJWT, userLogout);
+router.route("/logout").post(verifyJWT, userLogout);
 
 export default router;
