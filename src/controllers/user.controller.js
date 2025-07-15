@@ -233,26 +233,84 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
-    const { username, fullname } = req.body;
+    try {
+        const { username, fullname } = req.body;
 
-    if (!username || !fullname) {
-        throw new ApiError(400, "All fields are required");
-    }
+        if (!username || !fullname) {
+            throw new ApiError(400, "All fields are required");
+        }
 
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: {
-                username,
-                fullname,
+        const user = await User.findByIdAndUpdate(
+            req.user?._id,
+            {
+                $set: {
+                    username,
+                    fullname,
+                },
             },
-        },
-        { new: true }
-    );
+            { new: true }
+        );
 
-    return res
-        .status(200)
-        .json(new ApiResponce(200, user, "User details updated successfully"));
+        return res
+            .status(200)
+            .json(
+                new ApiResponce(200, user, "User details updated successfully")
+            );
+    } catch (error) {
+        throw new ApiError(400, "Account detail update failed");
+    }
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+    try {
+        const avatarLocalPath = req.file?.path;
+
+        if (!avatarLocalPath) {
+            throw new ApiError(400, "Avatar file is required");
+        }
+
+        const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+        const user = await User.findByIdAndUpdate(
+            req.user?._id,
+            {
+                $set: { avatar: avatar.secure_url },
+            },
+            { new: true }
+        );
+
+        return res
+            .status(200)
+            .json(new ApiResponce(200, user, "Avatar updated successfully"));
+    } catch (error) {
+        throw new ApiError(500, "avatar update failed");
+    }
+});
+
+const updateUsercoverImage = asyncHandler(async (req, res) => {
+    try {
+        const coverImageLocalPath = req.file?.path;
+
+        if (!coverImageLocalPath) {
+            throw new ApiError(400, "Cover image file is required");
+        }
+
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+        const user = await User.findByIdAndUpdate(
+            req.user?._id,
+            {
+                $set: { coverImage: coverImage.secure_url },
+            },
+            { new: true }
+        );
+
+        return res
+            .status(200)
+            .json(new ApiResponce(200, user, "Cover mage updated successfully"));
+    } catch (error) {
+        throw new ApiError(500, "Cover image update failed");
+    }
 });
 
 export {
@@ -263,4 +321,6 @@ export {
     changeCurrentPassword,
     getCurrentUser,
     updateAccountDetails,
+    updateUserAvatar,
+    updateUsercoverImage
 };
