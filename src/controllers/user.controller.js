@@ -225,10 +225,42 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
     }
 });
 
+const getCurrentUser = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user?._id).select("-password");
+    return res
+        .status(200)
+        .json(new ApiResponce(200, user, "User get successfully"));
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+    const { username, fullname } = req.body;
+
+    if (!username || !fullname) {
+        throw new ApiError(400, "All fields are required");
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                username,
+                fullname,
+            },
+        },
+        { new: true }
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponce(200, user, "User details updated successfully"));
+});
+
 export {
     userRegister,
     userLogin,
     userLogout,
     refreshingAccessToken,
     changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
 };
