@@ -307,10 +307,81 @@ const updateUsercoverImage = asyncHandler(async (req, res) => {
 
         return res
             .status(200)
-            .json(new ApiResponce(200, user, "Cover mage updated successfully"));
+            .json(
+                new ApiResponce(200, user, "Cover mage updated successfully")
+            );
     } catch (error) {
         throw new ApiError(500, "Cover image update failed");
     }
+});
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+    const { username } = req.params;
+
+    if (!username?.trim()) {
+        throw new ApiError(400, "user not exist");
+    }
+
+    const channel = await User.aggregate([
+        {
+            $match: {
+                username: username,
+            },
+        },
+        {
+            $lookup: {
+                from: "subscriptions", // Subscription ka mongodb me subscriptions name se model save hoga
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers",
+            },
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribed",
+            },
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "subscribers",
+                },
+                subscribedCount: {
+                    $size: "subscribed",
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false,
+                    },
+                },
+            },
+        },
+        {
+            $project: {
+                username: 1,
+                fullname: 1,
+                avatar: 1,
+                coverImage: 1,
+                subscribersCount: 1,
+                subscribedCount: 1,
+                isSubscribed: 1,
+            }
+        }
+    ]);
+
+    if (!channel?.length) {
+        throw new ApiError(404, "Channel not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponce(200, channel[0], "Channel profile fetched successfully"));
+
 });
 
 export {
@@ -322,5 +393,6 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUsercoverImage
+    updateUsercoverImage,
+    getUserChannelProfile,
 };
