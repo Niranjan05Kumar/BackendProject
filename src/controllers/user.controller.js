@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponce } from "../utils/apiResponce.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const userRegister = asyncHandler(async (req, res, next) => {
     const { username, email, fullname, password } = req.body;
@@ -322,66 +323,141 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         throw new ApiError(400, "user not exist");
     }
 
-    const channel = await User.aggregate([
-        {
-            $match: {
-                username: username,
-            },
-        },
-        {
-            $lookup: {
-                from: "subscriptions", // Subscription ka mongodb me subscriptions name se model save hoga
-                localField: "_id",
-                foreignField: "channel",
-                as: "subscribers",
-            },
-        },
-        {
-            $lookup: {
-                from: "subscriptions",
-                localField: "_id",
-                foreignField: "subscriber",
-                as: "subscribed",
-            },
-        },
-        {
-            $addFields: {
-                subscribersCount: {
-                    $size: "subscribers",
+    try {
+        const channel = await User.aggregate([
+            {
+                $match: {
+                    username: username,
                 },
-                subscribedCount: {
-                    $size: "subscribed",
+            },
+            {
+                $lookup: {
+                    from: "subscriptions", // Subscription ka mongodb me subscriptions name se model save hoga
+                    localField: "_id",
+                    foreignField: "channel",
+                    as: "subscribers",
                 },
-                isSubscribed: {
-                    $cond: {
-                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
-                        then: true,
-                        else: false,
+            },
+            {
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "subscriber",
+                    as: "subscribed",
+                },
+            },
+            {
+                $addFields: {
+                    subscribersCount: {
+                        $size: "$subscribers",
+                    },
+                    subscribedCount: {
+                        $size: "$subscribed",
+                    },
+                    isSubscribed: {
+                        $cond: {
+                            if: {
+                                $in: [req.user?._id, "$subscribers.subscriber"],
+                            },
+                            then: true,
+                            else: false,
+                        },
                     },
                 },
             },
-        },
-        {
-            $project: {
-                username: 1,
-                fullname: 1,
-                avatar: 1,
-                coverImage: 1,
-                subscribersCount: 1,
-                subscribedCount: 1,
-                isSubscribed: 1,
-            }
+            {
+                $project: {
+                    username: 1,
+                    fullname: 1,
+                    avatar: 1,
+                    coverImage: 1,
+                    subscribersCount: 1,
+                    subscribedCount: 1,
+                    isSubscribed: 1,
+                },
+            },
+        ]);
+
+        if (!channel?.length) {
+            throw new ApiError(404, "Channel not found");
         }
-    ]);
 
-    if (!channel?.length) {
-        throw new ApiError(404, "Channel not found");
+        return res
+            .status(200)
+            .json(
+                new ApiResponce(
+                    200,
+                    channel[0],
+                    "Channel profile fetched successfully"
+                )
+            );
+    } catch (error) {
+        console.error("Error fetching channel profile:", error.message);
+        throw new ApiError(500, "Failed to fetch channel profile");
     }
+});
 
-    return res
-        .status(200)
-        .json(new ApiResponce(200, channel[0], "Channel profile fetched successfully"));
+const getWatchHistory = asyncHandler(async (req, res) => {
+    try {
+        const user = await User.aggregate([
+            {
+                $match: {
+                    _id: new mongoose.Types.ObjectId(req.user._id),
+                },
+            },
+            {
+                $lookup: {
+                    from: "videos",
+                    localField: "watchHistory",
+                    foreignField: "_id",
+                    as: "watchHistory",
+                    pipeline: [
+                        {
+                            $lookup: {
+                                from: "users",
+                                localField: "owner",
+                                foreignField: "_id",
+                                as: "owner",
+                                pipeline: [
+                                    {
+                                        $project: {
+                                            username: 1,
+                                            fullname: 1,
+                                            avatar: 1,
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        {
+                            $addFields: {
+                                owner: {
+                                    $first: "$owner",
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+        ]);
 
+        if (!user?.length) {
+            throw new ApiError(404, "User not found");
+        }
+
+        return res
+            .status(200)
+            .json(
+                new ApiResponce(
+                    200,
+                    user[0].watchHistory,
+                    "Watch history fetched successfully"
+                )
+            );
+    } catch (error) {
+        console.error("Error fetching watch history:", error.message);
+        throw new ApiError(500, "Failed to fetch watch history");
+    }
 });
 
 export {
@@ -395,4 +471,5 @@ export {
     updateUserAvatar,
     updateUsercoverImage,
     getUserChannelProfile,
+    getWatchHistory,
 };
